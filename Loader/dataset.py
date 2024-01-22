@@ -64,6 +64,42 @@ class CrackDatasetTF():
             output_shapes=((None, None, 3), (None, None, 3))
         )
         
+        
+class DisDatasetTF():
+    def __init__(self, df, augmentations=False):
+        self.df = df
+        self.augmentations = augmentations
+
+    def _load_and_preprocess(self, image_path, label):
+        # Load the image and mask
+        image = tf.io.read_file(image_path)
+        image = tf.image.decode_png(image, channels=3)
+        image = tf.image.convert_image_dtype(image, tf.float32)
+        image = image * 2 - 1        
+
+        if self.augmentations:
+            # Apply augmentations
+            augmented = self.augmentations(image=image.numpy(),)
+            image, mask = tf.convert_to_tensor(augmented['image'])
+
+        return image, label
+
+    def __len__(self):
+        return len(self.df)
+
+    def to_tf_dataset(self):
+        def gen():
+            for idx in range(len(self.df)):
+                row = self.df.iloc[idx]
+                image_path, label = row.images, row.labels
+                yield self._load_and_preprocess(image_path, label)
+
+        return tf.data.Dataset.from_generator(
+            gen, 
+            output_types=(tf.float32, tf.int32), 
+            output_shapes=((None, None, 3), ())
+        )        
+        
 # def get_train_augs():
 #     return A.Compose([
 #         A.RandomCrop(height=256, width=256),
